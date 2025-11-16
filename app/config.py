@@ -5,5 +5,7 @@ class Settings(BaseSettings):
 
   APP_NAME: str = "Domyślna Nazwa Aplikacji"
   DATABASE_URL: str | None = None
+  SECRET_KEY: str
+  ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
 settings = Settings()

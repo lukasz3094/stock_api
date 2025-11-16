@@ -1,5 +1,20 @@
 fastapi
 uvicorn[standard]
 pydantic-settings
+pydantic[email]
+python-multipart
+
+# Baza Danych (Async)
+sqlalchemy
+asyncpg
+aiosqlite
+
+# Bezpieczeństwo
+passlib
+bcrypt==3.2.0
+python-jose[cryptography]
+
+# Testowanie
 pytest
+pytest-asyncio
 httpx
