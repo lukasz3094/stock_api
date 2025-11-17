@@ -16,6 +16,7 @@ services:
 
     environment:
       - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
 
     depends_on:
       - db

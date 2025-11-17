@@ -18,3 +18,9 @@ python-jose[cryptography]
 pytest
 pytest-asyncio
 httpx
+
+# Modele i Dane
+apscheduler
+pmdarima
+arch
+yfinance
