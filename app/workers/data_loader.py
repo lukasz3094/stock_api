@@ -1,29 +1,39 @@
 import yfinance as yf
 import pandas as pd
-from datetime import datetime
+from datetime import date, datetime
 
-def get_stock_data(ticker: str, start_date: str = "2020-01-01") -> pd.Series:
-  print(f"Pobieranie danych dla: {ticker} (using yfinance)")
+def download_stock_data(ticker: str, start_date: date) -> pd.DataFrame:
+  print(f"Pobieranie danych dla: {ticker} od {start_date}")
   try:
-    df = yf.download(ticker, start=start_date, end=datetime.now())
-      
+    start_str = start_date.strftime('%Y-%m-%d')
+    
+    df = yf.download(
+      ticker, 
+      start=start_str, 
+      end=datetime.now(), 
+      progress=False,
+      auto_adjust=True
+    )
+
     if df.empty:
-      raise Exception("Nie zwrócono danych z yfinance (sprawdź ticker?)")
+      return pd.DataFrame()
+
+    if isinstance(df.columns, pd.MultiIndex):
+      df.columns = df.columns.get_level_values(0)
 
     if 'Close' not in df.columns:
-      raise Exception("Brak kolumny 'Close' w danych z yfinance.")
-    
-    series = df[['Close']]
-    series.name = "y"
-   
-    series.index = pd.to_datetime(series.index)
-    series_resampled = series.resample('B').ffill().bfill()
-    
-    if series_resampled.isnull().all().item():
-      raise Exception("Wszystkie wartości są NaN po resamplingu.")
-    
-    return series_resampled
+      return pd.DataFrame()
       
+    df = df.reset_index()
+        
+    if 'Date' not in df.columns:    
+      for col in df.columns:
+        if pd.api.types.is_datetime64_any_dtype(df[col]):
+          df.rename(columns={col: 'Date'}, inplace=True)
+          break
+
+    return df[['Date', 'Close']]
+    
   except Exception as e:
-    print(f"Błąd podczas pobierania danych (yfinance) dla {ticker}: {e}")
-    return pd.Series(dtype='float64')
+    print(f"Błąd yfinance dla {ticker}: {e}")
+    return pd.DataFrame()

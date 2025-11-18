@@ -21,3 +21,12 @@ class PredictionGarch(Base):
   predicted_volatility = Column(Float)
   
   company = relationship("Company", back_populates="garch_predictions")
+  
+class PriceHistory(Base):
+  __tablename__ = "price_history"
+  id = Column(Integer, primary_key=True)
+  company_id = Column(Integer, ForeignKey("companies.id"))
+  date = Column(Date, nullable=False, index=True)
+  close = Column(Float, nullable=False)
+  
+  company = relationship("Company", back_populates="prices")

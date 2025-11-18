@@ -8,6 +8,6 @@ class Company(Base):
   name = Column(String, unique=True, nullable=False)
   ticker = Column(String, unique=True, index=True, nullable=False)
   
-  # prices = relationship("PriceHistory", back_populates="company")
   arima_predictions = relationship("PredictionArima", back_populates="company")
   garch_predictions = relationship("PredictionGarch", back_populates="company")
+  prices = relationship("PriceHistory", back_populates="company")

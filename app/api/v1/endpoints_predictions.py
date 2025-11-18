@@ -8,7 +8,7 @@ from app.models.company import Company
 from app.models.predictions import PredictionArima, PredictionGarch
 from app.schemas.predictions import DashboardData
 from datetime import date
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 
 router = APIRouter()
 
@@ -33,19 +33,28 @@ async def get_predictions_for_ticker(
   if not company:
     raise HTTPException(status_code=404, detail="Company not found")
   
-  today = date.today()
+  latest_forecast_date_q = await db.execute(
+    select(func.max(PredictionArima.forecast_date))
+    .where(PredictionArima.company_id == company.id)
+  )
+  latest_forecast_date = latest_forecast_date_q.scalar_one_or_none()
+  
+  if latest_forecast_date is None:
+    raise HTTPException(status_code=404, detail="No predictions found for this company yet.")
   
   arima_results = await db.execute(
     select(PredictionArima)
     .where(PredictionArima.company_id == company.id)
-    .order_by(desc(PredictionArima.forecast_date), PredictionArima.target_date)
+    .where(PredictionArima.forecast_date == latest_forecast_date)
+    .order_by(PredictionArima.target_date)
     .limit(FORECAST_DAYS)
   )
   
   garch_results = await db.execute(
     select(PredictionGarch)
     .where(PredictionGarch.company_id == company.id)
-    .order_by(desc(PredictionGarch.forecast_date), PredictionGarch.target_date)
+    .where(PredictionGarch.forecast_date == latest_forecast_date)
+    .order_by(PredictionGarch.target_date)
     .limit(FORECAST_DAYS)
   )
   
@@ -55,11 +64,11 @@ async def get_predictions_for_ticker(
   if not arima_forecasts:
     raise HTTPException(status_code=404, detail="No predictions found for this company yet.")
 
-  last_update_date = arima_forecasts[0].forecast_date if arima_forecasts else date.today()
-
+  last_update_date = arima_forecasts[0].forecast_date
+  
   return {
     "ticker": company.ticker,
-    "last_update": arima_forecasts[0].forecast_date,
+    "last_update": last_update_date,
     "arima_forecast": arima_forecasts,
     "garch_forecast": garch_forecasts
   }
