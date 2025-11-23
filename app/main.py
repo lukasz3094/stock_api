@@ -1,9 +1,10 @@
 from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.config import Settings, settings
 from app.db.base import Base
 from app.db.session import engine, AsyncSessionLocal
-from app.api.v1 import endpoints_auth, endpoints_predictions
+from app.api.v1 import endpoints_auth, endpoints_predictions, endpoints_companies
 from app.workers.scheduler import setup_scheduler
 
 from app.models.company import Company
@@ -52,6 +53,13 @@ async def lifespan(app: FastAPI):
   print("Zamykanie aplikacji...")
 
 app = FastAPI(title=settings.APP_NAME, lifespan=lifespan)
+app.add_middleware(
+  CORSMiddleware,
+  allow_origins=["http://localhost:5173", "http://localhost:3000"],
+  allow_credentials=True,
+  allow_methods=["*"],
+  allow_headers=["*"],
+)
 
 def get_settings() -> Settings:
   return settings
@@ -66,3 +74,4 @@ def health_check():
 
 app.include_router(endpoints_auth.router, prefix="/api/v1", tags=["Auth"])
 app.include_router(endpoints_predictions.router, prefix="/api/v1", tags=["Predictions"])
+app.include_router(endpoints_companies.router, prefix="/api/v1", tags=["Companies"])
