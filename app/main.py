@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from app.config import Settings, settings
 from app.db.base import Base
 from app.db.session import engine, AsyncSessionLocal
-from app.api.v1 import endpoints_auth, endpoints_predictions, endpoints_companies
+from app.api.v1 import endpoints_auth, endpoints_predictions, endpoints_companies, endpoints_interpret
 from app.workers.scheduler import setup_scheduler
 
 from app.models.company import Company
@@ -75,3 +75,4 @@ def health_check():
 app.include_router(endpoints_auth.router, prefix="/api/v1", tags=["Auth"])
 app.include_router(endpoints_predictions.router, prefix="/api/v1", tags=["Predictions"])
 app.include_router(endpoints_companies.router, prefix="/api/v1", tags=["Companies"])
+app.include_router(endpoints_interpret.router, prefix="/api/v1", tags=["Interpret"])

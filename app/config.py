@@ -7,5 +7,6 @@ class Settings(BaseSettings):
   DATABASE_URL: str | None = None
   SECRET_KEY: str
   ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+  GEMINI_API_KEY: str | None = None
 
 settings = Settings()
