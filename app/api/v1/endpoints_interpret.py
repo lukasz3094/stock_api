@@ -17,10 +17,10 @@ async def interpret_predictions(input_data: InterpretInput):
     model = genai.GenerativeModel('gemini-2.5-flash')
 
     prompt = f"""
-    Odpowiedz bezpośrednio, bez żadnych wstępów czy zwrotów grzecznościowych.
-    Jesteś asystentem inwestora giełdowego. Twoim zadaniem jest prosta i zwięzła ocena prognozy dla akcji.
-    Unikaj technicznego języka i modeli. Podaj krótkie podsumowanie (2-3 zdania) oraz ocenę stabilności prognozy (stabilna, niestabilna, etc.).
-    Odpowiedź podaj w języku polskim.
+    Przedstaw zwięzłą i profesjonalną analizę prognozy dla akcji, unikając języka typowego dla sztucznej inteligencji.
+    Na podstawie danych o przewidywanej cenie i zmienności, sformułuj ocenę, czy prognoza jest stabilna/korzystna/niekorzystna.
+    Jeżeli dane nie wskazują na znaczące zmiany w cenie lub zmienności, należy jasno określić brak wyraźnego trendu.
+    Podsumowanie w formie komentarza rynkowego ma mieć DOKŁADNIE 2 zdania. Odpowiedź podaj w języku polskim.
 
     Prognoza cen (ARIMA, następne 10 dni): {', '.join([f'{p.predicted_value:.2f}' for p in input_data.arima_forecast])}
     Prognoza zmienności (GARCH, następne 10 dni): {', '.join([f'{p.predicted_volatility:.4f}' for p in input_data.garch_forecast])}
