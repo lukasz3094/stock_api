@@ -8,11 +8,14 @@ from datetime import date, timedelta, datetime
 
 from app.db.session import AsyncSessionLocal
 from app.models.company import Company
-from app.models.predictions import PredictionArima, PredictionGarch, PriceHistory
+from app.models.prediction_arima import PredictionArima
+from app.models.prediction_garch import PredictionGarch
+from app.models.price_history import PriceHistory
 from .data_loader import download_stock_data
 from .model_pipeline import train_and_predict
 
 scheduler = AsyncIOScheduler()
+
 
 async def run_nightly_prediction_job(db: AsyncSession | None = None, tickers=None):
   print(f"[{datetime.now()}] Uruchamianie Nocnego Joba...")
@@ -37,10 +40,10 @@ async def run_nightly_prediction_job(db: AsyncSession | None = None, tickers=Non
     print(f"--- Przetwarzanie: {company_ticker} ---")
 
     last_entry_q = await db.execute(
-      select(PriceHistory.date)
-      .where(PriceHistory.company_id == company_id)
-      .order_by(desc(PriceHistory.date))
-      .limit(1)
+        select(PriceHistory.date)
+        .where(PriceHistory.company_id == company_id)
+        .order_by(desc(PriceHistory.date))
+        .limit(1)
     )
     last_date = last_entry_q.scalar_one_or_none()
 
@@ -51,7 +54,7 @@ async def run_nightly_prediction_job(db: AsyncSession | None = None, tickers=Non
     if start_download_date < today:
       try:
         new_data_df = await asyncio.to_thread(
-          download_stock_data, company_ticker, start_download_date
+            download_stock_data, company_ticker, start_download_date
         )
         if not new_data_df.empty:
           for _, row in new_data_df.iterrows():
@@ -59,9 +62,9 @@ async def run_nightly_prediction_job(db: AsyncSession | None = None, tickers=Non
             if last_date and current_date <= last_date:
               continue
             ph = PriceHistory(
-              company_id=company_id,
-              date=current_date,
-              close=row['Close']
+                company_id=company_id,
+                date=current_date,
+                close=row['Close']
             )
             db.add(ph)
           await db.commit()
@@ -69,9 +72,9 @@ async def run_nightly_prediction_job(db: AsyncSession | None = None, tickers=Non
         pass
 
     history_q = await db.execute(
-      select(PriceHistory)
-      .where(PriceHistory.company_id == company_id)
-      .order_by(PriceHistory.date)
+        select(PriceHistory)
+        .where(PriceHistory.company_id == company_id)
+        .order_by(PriceHistory.date)
     )
     history_rows = history_q.scalars().all()
 
@@ -79,7 +82,7 @@ async def run_nightly_prediction_job(db: AsyncSession | None = None, tickers=Non
       continue
 
     df_full = pd.DataFrame([
-      {'Date': h.date, 'y': h.close} for h in history_rows
+        {'Date': h.date, 'y': h.close} for h in history_rows
     ])
     df_full['Date'] = pd.to_datetime(df_full['Date'])
     df_full.set_index('Date', inplace=True)
@@ -87,7 +90,7 @@ async def run_nightly_prediction_job(db: AsyncSession | None = None, tickers=Non
 
     try:
       arima_forecast, garch_forecast = await asyncio.to_thread(
-        train_and_predict, series_clean, company_ticker
+          train_and_predict, series_clean, company_ticker
       )
     except Exception:
       continue
@@ -101,23 +104,24 @@ async def run_nightly_prediction_job(db: AsyncSession | None = None, tickers=Non
     for i in range(len(arima_forecast)):
       target_dt = today + timedelta(days=i+1)
       db.add(PredictionArima(
-        company_id=company_id,
-        forecast_date=today,
-        target_date=target_dt,
-        predicted_value=arima_forecast.iloc[i]
-      ))
-      if garch_forecast is not None:
-        db.add(PredictionGarch(
           company_id=company_id,
           forecast_date=today,
           target_date=target_dt,
-          predicted_volatility=garch_forecast.iloc[i]
+          predicted_value=arima_forecast.iloc[i]
+      ))
+      if garch_forecast is not None:
+        db.add(PredictionGarch(
+            company_id=company_id,
+            forecast_date=today,
+            target_date=target_dt,
+            predicted_volatility=garch_forecast.iloc[i]
         ))
 
     await db.commit()
     print(f"Zapisano prognozy dla {company_ticker}")
 
   print(f"[{datetime.now()}] Nocny Job zakończony.")
+
 
 def setup_scheduler():
   scheduler.add_job(run_nightly_prediction_job, 'cron', hour=1, minute=0)

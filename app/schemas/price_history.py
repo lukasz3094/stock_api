@@ -1,9 +1,11 @@
 from pydantic import BaseModel, ConfigDict
 from datetime import date
 
+
 class PriceHistoryBase(BaseModel):
   date: date
   close: float
+
 
 class PriceHistoryPublic(PriceHistoryBase):
   id: int

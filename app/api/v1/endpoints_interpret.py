@@ -1,34 +1,61 @@
 from fastapi import APIRouter, Depends, HTTPException
-from app.schemas.interpret import InterpretInput
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.api.deps import get_db, get_current_user
+from app.models.prediction_arima import PredictionArima
+from app.models.prediction_garch import PredictionGarch
+from app.models.company import Company
+from app.models.user import User
 from app.config import settings
 import google.generativeai as genai
+from typing import List
+from fastapi.responses import StreamingResponse
 
 router = APIRouter()
 
-@router.post("/predictions/interpret")
-async def interpret_predictions(input_data: InterpretInput):
-    if not settings.GEMINI_API_KEY:
-        raise HTTPException(status_code=500, detail="GEMINI_API_KEY is not configured in the .env file. You can get a key from Google AI Studio.")
 
-    if not input_data.arima_forecast or not input_data.garch_forecast:
-        raise HTTPException(status_code=400, detail="ARIMA and GARCH forecast data are required.")
+def stream_interpretation(prompt: str):
+  if not settings.GEMINI_API_KEY:
+    raise HTTPException(
+        status_code=500, detail="GEMINI_API_KEY is not configured in the .env file. You can get a key from Google AI Studio.")
 
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-2.5-flash')
+  try:
+    model = genai.GenerativeModel('gemini-2.5-flash-image')
+    response = model.generate_content(prompt, stream=True)
+    for chunk in response:
+      yield chunk.text
+  except Exception as e:
+    print(f"Error during Gemini API call: {e}")
+    yield f"Failed to generate interpretation: {e}"
 
-    prompt = f"""
+
+@router.get("/interpret/{symbol}")
+async def interpret_predictions(
+    symbol: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+  arima_result = await db.execute(select(PredictionArima).join(Company).filter(Company.ticker == symbol.upper()).order_by(PredictionArima.target_date.desc()).limit(10))
+  garch_result = await db.execute(select(PredictionGarch).join(Company).filter(Company.ticker == symbol.upper()).order_by(PredictionGarch.target_date.desc()).limit(10))
+
+  arima_forecasts = arima_result.scalars().fetchall()
+  garch_forecasts = garch_result.scalars().fetchall()
+
+  if not arima_forecasts or not garch_forecasts:
+    raise HTTPException(
+        status_code=404, detail=f"No prediction data found for symbol: {symbol}")
+
+  arima_forecasts.reverse()
+  garch_forecasts.reverse()
+
+  prompt = f"""
     Przedstaw zwięzłą i profesjonalną analizę prognozy dla akcji, unikając języka typowego dla sztucznej inteligencji.
     Na podstawie danych o przewidywanej cenie i zmienności, sformułuj ocenę, czy prognoza jest stabilna/korzystna/niekorzystna.
     Jeżeli dane nie wskazują na znaczące zmiany w cenie lub zmienności, należy jasno określić brak wyraźnego trendu.
-    Podsumowanie w formie komentarza rynkowego ma mieć DOKŁADNIE 2 zdania. Odpowiedź podaj w języku polskim.
+    Podsumowanie w formie komentarza rynkowego. Odpowiedź podaj w języku polskim.
 
-    Prognoza cen (ARIMA, następne 10 dni): {', '.join([f'{p.predicted_value:.2f}' for p in input_data.arima_forecast])}
-    Prognoza zmienności (GARCH, następne 10 dni): {', '.join([f'{p.predicted_volatility:.4f}' for p in input_data.garch_forecast])}
+    Prognoza cen (ARIMA, następne 10 dni): {', '.join([f'{p.predicted_value:.2f}' for p in arima_forecasts])}
+    Prognoza zmienności (GARCH, następne 10 dni): {', '.join([f'{p.predicted_volatility:.4f}' for p in garch_forecasts])}
     """
 
-    try:
-        response = model.generate_content(prompt)
-        return {"interpretation": response.text}
-    except Exception as e:
-        print(f"Error during Gemini API call: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate interpretation: {e}")
+  return StreamingResponse(stream_interpretation(prompt), media_type="text/event-stream")

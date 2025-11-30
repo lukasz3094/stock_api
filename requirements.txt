@@ -18,6 +18,7 @@ python-jose[cryptography]
 pytest
 pytest-asyncio
 httpx
+pytest-mock
 
 # Modele i Dane
 apscheduler
@@ -25,3 +26,7 @@ pmdarima
 arch
 yfinance
 google-generativeai
+psycopg2-binary
+
+# Formatowanie
+autopep8

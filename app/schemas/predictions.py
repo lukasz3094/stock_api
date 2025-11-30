@@ -1,15 +1,18 @@
 from pydantic import BaseModel, ConfigDict
 from datetime import date
 
+
 class ArimaPredictionOut(BaseModel):
   target_date: date
   predicted_value: float
   model_config = ConfigDict(from_attributes=True)
 
+
 class GarchPredictionOut(BaseModel):
   target_date: date
   predicted_volatility: float
   model_config = ConfigDict(from_attributes=True)
+
 
 class DashboardData(BaseModel):
   ticker: str
