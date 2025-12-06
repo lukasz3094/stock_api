@@ -20,7 +20,7 @@ def stream_interpretation(prompt: str):
         status_code=500, detail="GEMINI_API_KEY is not configured in the .env file. You can get a key from Google AI Studio.")
 
   try:
-    model = genai.GenerativeModel('gemini-2.5-flash-image')
+    model = genai.GenerativeModel('gemini-2.5-flash')
     response = model.generate_content(prompt, stream=True)
     for chunk in response:
       yield chunk.text
@@ -49,13 +49,13 @@ async def interpret_predictions(
   garch_forecasts.reverse()
 
   prompt = f"""
-    Przedstaw zwięzłą i profesjonalną analizę prognozy dla akcji, unikając języka typowego dla sztucznej inteligencji.
-    Na podstawie danych o przewidywanej cenie i zmienności, sformułuj ocenę, czy prognoza jest stabilna/korzystna/niekorzystna.
-    Jeżeli dane nie wskazują na znaczące zmiany w cenie lub zmienności, należy jasno określić brak wyraźnego trendu.
-    Podsumowanie w formie komentarza rynkowego. Odpowiedź podaj w języku polskim.
+    Jesteś analitykiem finansowym. Twoim zadaniem jest ocena prognozy giełdowej dla klienta.
+    W jednym, zwięzłym zdaniu po polsku, poinformuj klienta, czy prognoza jest stabilna, bazując na przewidywanej zmienności (GARCH).
+    Unikaj technicznego żargonu. Np. "Prognoza wygląda na stabilną z uwagi na niską przewidywaną zmienność."
 
-    Prognoza cen (ARIMA, następne 10 dni): {', '.join([f'{p.predicted_value:.2f}' for p in arima_forecasts])}
-    Prognoza zmienności (GARCH, następne 10 dni): {', '.join([f'{p.predicted_volatility:.4f}' for p in garch_forecasts])}
+    Dane:
+    Prognoza cen (ARIMA): {', '.join([f'{p.predicted_value:.2f}' for p in arima_forecasts])}
+    Prognoza zmienności (GARCH): {', '.join([f'{p.predicted_volatility:.4f}' for p in garch_forecasts])}
     """
 
   return StreamingResponse(stream_interpretation(prompt), media_type="text/event-stream")
