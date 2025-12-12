@@ -6,13 +6,7 @@ import warnings
 
 FORECAST_DAYS = 10
 
-MODEL_CONFIG = {
-    "BOS.WA": {"order": (1, 1, 2), "seasonal_order": (1, 0, 1, 5)},
-    "GTN.WA": {"order": (0, 1, 0), "seasonal_order": (0, 0, 0, 5)},
-    "BHW.WA": {"order": (1, 1, 0), "seasonal_order": (0, 0, 0, 5)},
-    "PKO.WA": {"order": (3, 1, 1), "seasonal_order": (0, 0, 0, 5)},
-    "SPL.WA": {"order": (3, 1, 0), "seasonal_order": (0, 0, 1, 5)},
-}
+MODEL_CONFIG = {}
 
 
 def train_and_predict(y: pd.Series, ticker: str) -> tuple[pd.Series | None, pd.Series | None]:
@@ -47,8 +41,7 @@ def train_and_predict(y: pd.Series, ticker: str) -> tuple[pd.Series | None, pd.S
       auto_model = pm.auto_arima(
           y,
           start_p=1, start_q=1,
-          max_p=3, max_q=3,
-          m=5, d=1,
+          max_p=5, max_q=5,
           trace=False,
           error_action='ignore',
           suppress_warnings=True,

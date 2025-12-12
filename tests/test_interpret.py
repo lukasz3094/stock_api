@@ -30,7 +30,7 @@ async def test_interpret_predictions_not_found(client: AsyncClient, logged_in_to
 
 
 @pytest.mark.asyncio
-async def test_interpret_predictions_success(client: AsyncClient, logged_in_token: str, run_predictions):
+async def test_interpret_predictions_success(client: AsyncClient, logged_in_token: str):
   headers = {"Authorization": f"Bearer {logged_in_token}"}
 
   mock_text_chunks = ["Mocked interpretation part 1. ",
