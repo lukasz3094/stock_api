@@ -10,9 +10,10 @@ from app.db.session import AsyncSessionLocal
 from app.models.company import Company
 from app.models.prediction_arima import PredictionArima
 from app.models.prediction_garch import PredictionGarch
+from app.models.prediction_lstm import PredictionLstm
 from app.models.price_history import PriceHistory
 from .data_loader import download_stock_data
-from .model_pipeline import train_and_predict
+from .model_pipeline import train_and_predict, train_and_predict_lstm
 
 scheduler = AsyncIOScheduler()
 
@@ -38,6 +39,19 @@ async def run_nightly_prediction_job(db: AsyncSession | None = None, tickers=Non
 
   for company_id, company_ticker in companies_data:
     print(f"--- Przetwarzanie: {company_ticker} ---")
+
+    ten_days_ago = today - timedelta(days=10)
+    
+    recent_prediction_q = await db.execute(
+        select(PredictionArima.id)
+        .where(PredictionArima.company_id == company_id)
+        .where(PredictionArima.forecast_date >= ten_days_ago)
+        .limit(1)
+    )
+    
+    if recent_prediction_q.scalar_one_or_none() is not None:
+        print(f"Skipping {company_ticker} as recent predictions exist.")
+        continue
 
     last_entry_q = await db.execute(
         select(PriceHistory.date)
@@ -92,30 +106,45 @@ async def run_nightly_prediction_job(db: AsyncSession | None = None, tickers=Non
       arima_forecast, garch_forecast = await asyncio.to_thread(
           train_and_predict, series_clean, company_ticker
       )
+      lstm_forecast = await asyncio.to_thread(
+          train_and_predict_lstm, series_clean, company_ticker
+      )
     except Exception:
       continue
 
-    if arima_forecast is None:
+    if arima_forecast is None and lstm_forecast is None:
       continue
 
     await db.execute(delete(PredictionArima).where(PredictionArima.company_id == company_id))
     await db.execute(delete(PredictionGarch).where(PredictionGarch.company_id == company_id))
+    await db.execute(delete(PredictionLstm).where(PredictionLstm.company_id == company_id))
 
-    for i in range(len(arima_forecast)):
-      target_dt = today + timedelta(days=i+1)
-      db.add(PredictionArima(
-          company_id=company_id,
-          forecast_date=today,
-          target_date=target_dt,
-          predicted_value=arima_forecast.iloc[i]
-      ))
-      if garch_forecast is not None:
-        db.add(PredictionGarch(
+    if arima_forecast is not None:
+      for i in range(len(arima_forecast)):
+        target_dt = today + timedelta(days=i+1)
+        db.add(PredictionArima(
             company_id=company_id,
             forecast_date=today,
             target_date=target_dt,
-            predicted_volatility=garch_forecast.iloc[i]
+            predicted_value=arima_forecast.iloc[i]
         ))
+        if garch_forecast is not None:
+          db.add(PredictionGarch(
+              company_id=company_id,
+              forecast_date=today,
+              target_date=target_dt,
+              predicted_volatility=garch_forecast.iloc[i]
+          ))
+
+    if lstm_forecast is not None:
+        for i in range(len(lstm_forecast)):
+            target_dt = today + timedelta(days=i + 1)
+            db.add(PredictionLstm(
+                company_id=company_id,
+                forecast_date=today,
+                target_date=target_dt,
+                predicted_value=lstm_forecast.iloc[i]
+            ))
 
     await db.commit()
     print(f"Zapisano prognozy dla {company_ticker}")

@@ -11,4 +11,5 @@ class Company(Base):
 
   arima_predictions = relationship("PredictionArima", back_populates="company")
   garch_predictions = relationship("PredictionGarch", back_populates="company")
+  lstm_predictions = relationship("PredictionLstm", back_populates="company")
   prices = relationship("PriceHistory", back_populates="company")

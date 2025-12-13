@@ -9,6 +9,10 @@ from app.models.price_history import PriceHistory
 from app.schemas.company import CompanyWithPrice
 from app.schemas.price_history import PriceHistoryPublic
 from typing import List
+import io
+import pandas as pd
+from fastapi.responses import StreamingResponse
+
 
 router = APIRouter()
 
@@ -71,3 +75,39 @@ async def get_company_history(
       .order_by(PriceHistory.date)
   )
   return result.scalars().all()
+
+
+@router.get("/companies/{ticker}/history/download")
+async def download_company_history(
+    ticker: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Check if company exists first
+    company_result = await db.execute(select(Company).where(Company.ticker == ticker.upper()))
+    company = company_result.scalar_one_or_none()
+
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    # Original logic for fetching history
+    result = await db.execute(
+        select(PriceHistory)
+        .where(PriceHistory.company_id == company.id)
+        .order_by(PriceHistory.date)
+    )
+    history = result.scalars().all()
+
+    if not history:
+        raise HTTPException(status_code=404, detail="No history found for this company")
+
+    df = pd.DataFrame([
+        {'date': h.date, 'close': h.close} for h in history
+    ])
+
+    stream = io.StringIO()
+    df.to_csv(stream, index=False)
+    
+    response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
+    response.headers["Content-Disposition"] = f"attachment; filename={ticker}_history.csv"
+    return response

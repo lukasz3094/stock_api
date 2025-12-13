@@ -4,3 +4,4 @@ from app.models.company import Company
 from app.models.prediction_arima import PredictionArima
 from app.models.prediction_garch import PredictionGarch
 from app.models.price_history import PriceHistory
+from app.models.prediction_lstm import PredictionLstm

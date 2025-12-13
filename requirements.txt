@@ -30,3 +30,5 @@ psycopg2-binary
 
 # Formatowanie
 autopep8
+tensorflow
+scikit-learn
