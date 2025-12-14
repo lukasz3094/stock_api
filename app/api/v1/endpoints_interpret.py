@@ -24,7 +24,7 @@ def stream_interpretation(prompt: str):
         status_code=500, detail="GEMINI_API_KEY is not configured in the .env file. You can get a key from Google AI Studio.")
 
   try:
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-2.5-flash')
     response = model.generate_content(prompt, stream=True)
     for chunk in response:
       yield chunk.text
@@ -36,7 +36,7 @@ def stream_interpretation(prompt: str):
 @router.get("/interpret/{symbol}")
 async def interpret_predictions(
     symbol: str,
-    model_names: List[str] = Query(..., enum=["arima", "lstm", "garch"]),
+    model_names: List[str] = Query(..., enum=["arima", "lstm"]),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -50,6 +50,7 @@ async def interpret_predictions(
         "Jesteś analitykiem finansowym. Twoim zadaniem jest ocena prognozy giełdowej dla klienta.",
         "Na podstawie dostarczonych danych, stwórz krótką, zwięzłą analizę w jednym, maksymalnie dwóch zdaniach po polsku.",
         "Skup się na ogólnym trendzie i stabilności, unikając technicznego żargonu.",
+        "Pamiętaj, że prognoza zmienności (GARCH) jest uzupełnieniem prognozy cen (ARIMA) i odnosi się do tego samego modelu.",
         "\nDane:",
         f"Historyczne ceny zamknięcia (ostatnie 30 dni): {', '.join([f'{p.close:.2f}' for p in price_history])}"
     ]
@@ -63,6 +64,13 @@ async def interpret_predictions(
             data_found = True
             arima_forecasts.reverse()
             prompt_parts.append(f"Prognoza cen (ARIMA): {', '.join([f'{p.predicted_value:.2f}' for p in arima_forecasts])}")
+            
+        garch_result = await db.execute(select(PredictionGarch).join(Company).filter(Company.ticker == symbol.upper()).order_by(PredictionGarch.target_date.desc()).limit(10))
+        garch_forecasts = garch_result.scalars().fetchall()
+        if garch_forecasts:
+            data_found = True
+            garch_forecasts.reverse()
+            prompt_parts.append(f"Prognoza zmienności (GARCH): {', '.join([f'{p.predicted_volatility:.4f}' for p in garch_forecasts])}")
 
     if "lstm" in model_names:
         lstm_result = await db.execute(select(PredictionLstm).join(Company).filter(Company.ticker == symbol.upper()).order_by(PredictionLstm.target_date.desc()).limit(10))
@@ -71,14 +79,6 @@ async def interpret_predictions(
             data_found = True
             lstm_forecasts.reverse()
             prompt_parts.append(f"Prognoza cen (LSTM): {', '.join([f'{p.predicted_value:.2f}' for p in lstm_forecasts])}")
-
-    if "garch" in model_names:
-        garch_result = await db.execute(select(PredictionGarch).join(Company).filter(Company.ticker == symbol.upper()).order_by(PredictionGarch.target_date.desc()).limit(10))
-        garch_forecasts = garch_result.scalars().fetchall()
-        if garch_forecasts:
-            data_found = True
-            garch_forecasts.reverse()
-            prompt_parts.append(f"Prognoza zmienności (GARCH): {', '.join([f'{p.predicted_volatility:.4f}' for p in garch_forecasts])}")
 
     if not data_found:
         raise HTTPException(
