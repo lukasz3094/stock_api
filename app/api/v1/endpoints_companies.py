@@ -12,15 +12,25 @@ from typing import List
 import io
 import pandas as pd
 from fastapi.responses import StreamingResponse
-
+from datetime import date, datetime
 
 router = APIRouter()
 
+timeframe_map = {
+  '1D': 1,
+  '5D': 5,
+  '1M': 30,
+  '6M': 182,
+  'YTD': (date.today() - date(date.today().year, 1, 1)).days,
+  '1Y': 365,
+  'MAX': None
+}
 
-@router.get("/companies", response_model=List[CompanyWithPrice])
+@router.get("/companies/{timeframe}", response_model=List[CompanyWithPrice])
 async def get_all_companies(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+  timeframe: str,
+  db: AsyncSession = Depends(get_db),
+  current_user: User = Depends(get_current_user)
 ):
   result = await db.execute(select(Company))
   companies = result.scalars().all()
@@ -28,10 +38,10 @@ async def get_all_companies(
   companies_with_prices = []
   for company in companies:
     price_result = await db.execute(
-        select(PriceHistory)
-        .where(PriceHistory.company_id == company.id)
-        .order_by(desc(PriceHistory.date))
-        .limit(2)
+      select(PriceHistory)
+      .where(PriceHistory.company_id == company.id)
+      .order_by(desc(PriceHistory.date))
+      .limit(2)
     )
     prices = price_result.scalars().all()
 
@@ -40,16 +50,41 @@ async def get_all_companies(
     if prices and len(prices) > 0:
       current_price = prices[0].close
       if len(prices) > 1:
-        price_change = prices[0].close - prices[1].close
+        if timeframe in timeframe_map.keys():
+          days = timeframe_map[timeframe]
+          if days is None:
+            last_price = await db.execute(
+              select(PriceHistory)
+              .where(PriceHistory.company_id == company.id)
+              .order_by(PriceHistory.date)
+              .limit(1)
+            )
+            price_change = current_price - last_price.scalar_one().close
+          else:
+            target_date = prices[0].date - pd.Timedelta(days=days)
+            past_price = await db.execute(
+              select(PriceHistory)
+              .where(
+                (PriceHistory.company_id == company.id) &
+                (PriceHistory.date <= target_date)
+              )
+              .order_by(desc(PriceHistory.date))
+              .limit(1)
+            )
+            
+            if past_price is not None:
+              price_change = current_price - past_price.scalar_one().close
+        else:
+          raise HTTPException(status_code=400, detail="Invalid timeframe")
 
     companies_with_prices.append(
-        CompanyWithPrice(
-            id=company.id,
-            name=company.name,
-            ticker=company.ticker,
-            current_price=current_price,
-            price_change=price_change,
-        )
+      CompanyWithPrice(
+        id=company.id,
+        name=company.name,
+        ticker=company.ticker,
+        current_price=current_price,
+        price_change=price_change,
+      )
     )
 
   return companies_with_prices
@@ -57,57 +92,53 @@ async def get_all_companies(
 
 @router.get("/companies/{ticker}/history", response_model=List[PriceHistoryPublic])
 async def get_company_history(
-    ticker: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+  ticker: str,
+  db: AsyncSession = Depends(get_db),
+  current_user: User = Depends(get_current_user)
 ):
-  # Check if company exists first
   company_result = await db.execute(select(Company).where(Company.ticker == ticker.upper()))
   company = company_result.scalar_one_or_none()
 
   if not company:
     raise HTTPException(status_code=404, detail="Company not found")
 
-  # Original logic for fetching history
   result = await db.execute(
-      select(PriceHistory)
-      .where(PriceHistory.company_id == company.id)
-      .order_by(PriceHistory.date)
+    select(PriceHistory)
+    .where(PriceHistory.company_id == company.id)
+    .order_by(PriceHistory.date)
   )
   return result.scalars().all()
 
 
 @router.get("/companies/{ticker}/history/download")
 async def download_company_history(
-    ticker: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+  ticker: str,
+  db: AsyncSession = Depends(get_db),
+  current_user: User = Depends(get_current_user)
 ):
-    # Check if company exists first
-    company_result = await db.execute(select(Company).where(Company.ticker == ticker.upper()))
-    company = company_result.scalar_one_or_none()
+  company_result = await db.execute(select(Company).where(Company.ticker == ticker.upper()))
+  company = company_result.scalar_one_or_none()
 
-    if not company:
-        raise HTTPException(status_code=404, detail="Company not found")
+  if not company:
+    raise HTTPException(status_code=404, detail="Company not found")
 
-    # Original logic for fetching history
-    result = await db.execute(
-        select(PriceHistory)
-        .where(PriceHistory.company_id == company.id)
-        .order_by(PriceHistory.date)
-    )
-    history = result.scalars().all()
+  result = await db.execute(
+    select(PriceHistory)
+    .where(PriceHistory.company_id == company.id)
+    .order_by(PriceHistory.date)
+  )
+  history = result.scalars().all()
 
-    if not history:
-        raise HTTPException(status_code=404, detail="No history found for this company")
+  if not history:
+    raise HTTPException(status_code=404, detail="No history found for this company")
 
-    df = pd.DataFrame([
-        {'date': h.date, 'close': h.close} for h in history
-    ])
+  df = pd.DataFrame([
+    {'date': h.date, 'close': h.close} for h in history
+  ])
 
-    stream = io.StringIO()
-    df.to_csv(stream, index=False)
+  stream = io.StringIO()
+  df.to_csv(stream, index=False)
     
-    response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
-    response.headers["Content-Disposition"] = f"attachment; filename={ticker}_history.csv"
-    return response
+  response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
+  response.headers["Content-Disposition"] = f"attachment; filename={ticker}_history.csv"
+  return response
