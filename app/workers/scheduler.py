@@ -40,17 +40,17 @@ async def run_nightly_prediction_job(db: AsyncSession | None = None, tickers=Non
   for company_id, company_ticker in companies_data:
     print(f"--- Przetwarzanie: {company_ticker} ---")
 
-    ten_days_ago = today - timedelta(days=10)
-    
+    target_check_date = today + timedelta(days=10)
+
     recent_prediction_q = await db.execute(
         select(PredictionArima.id)
         .where(PredictionArima.company_id == company_id)
-        .where(PredictionArima.forecast_date >= ten_days_ago)
+        .where(PredictionArima.target_date == target_check_date)
         .limit(1)
     )
-    
+
     if recent_prediction_q.scalar_one_or_none() is not None:
-        print(f"Skipping {company_ticker} as recent predictions exist.")
+        print(f"Skipping {company_ticker} as prediction for {target_check_date} exists.")
         continue
 
     last_entry_q = await db.execute(
