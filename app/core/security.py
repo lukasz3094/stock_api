@@ -33,3 +33,21 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
   encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
   return encoded_jwt
+
+
+def create_email_token(data: dict):
+  to_encode = data.copy()
+  expire = datetime.now(timezone.utc) + timedelta(hours=24)
+  to_encode.update({"exp": expire, "scope": "activation"})
+  encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+  return encoded_jwt
+
+
+def verify_email_token(token: str) -> str | None:
+  try:
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    if payload.get("scope") != "activation":
+      return None
+    return payload.get("sub")
+  except JWTError:
+    return None

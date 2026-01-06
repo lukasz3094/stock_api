@@ -11,5 +11,16 @@ class Settings(BaseSettings):
   ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
   GEMINI_API_KEY: str | None = None
 
+  # Email Settings
+  MAIL_USERNAME: str = "your_email@example.com"
+  MAIL_PASSWORD: str = "your_password"
+  MAIL_FROM: str = "your_email@example.com"
+  MAIL_PORT: int = 587
+  MAIL_SERVER: str = "smtp.gmail.com"
+  MAIL_STARTTLS: bool = True
+  MAIL_SSL_TLS: bool = False
+  USE_CREDENTIALS: bool = True
+  VALIDATE_CERTS: bool = True
+
 
 settings = Settings()
