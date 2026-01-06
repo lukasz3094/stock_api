@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Ensure current directory is in PYTHONPATH
+export PYTHONPATH=$PYTHONPATH:/app
+
 # Wait for the database to be ready
 echo "Waiting for the database to be ready..."
 python /app/app/check_db_ready.py
