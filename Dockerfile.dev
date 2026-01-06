@@ -1,0 +1,26 @@
+# Dockerfile.dev
+FROM python:3.11-slim
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
+# Install system dependencies (including git for some pip packages if needed)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gcc libpq-dev git && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install alembic
+
+# Copy the startup script
+COPY startup.sh .
+RUN chmod +x startup.sh
+
+# We do NOT copy the app code here because we mount it as a volume in docker-compose.yml
+# This allows for hot reloading.
+
+CMD ["./startup.sh"]
+

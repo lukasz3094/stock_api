@@ -14,8 +14,7 @@ conf = ConnectionConfig(
 )
 
 async def send_activation_email(email_to: str, token: str):
-    # TODO: Move Frontend URL to settings
-    activation_link = f"http://localhost:5173/verify-email?token={token}"
+    activation_link = f"{settings.FRONTEND_URL}/verify-email?token={token}"
     
     html = f"""
     <html>

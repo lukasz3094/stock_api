@@ -1,20 +1,21 @@
 #!/bin/bash
+set -e
 
 # Wait for the database to be ready
 echo "Waiting for the database to be ready..."
 python /app/app/check_db_ready.py
-if [ $? -ne 0 ]; then
-    echo "Database did not become ready. Exiting."
-    exit 1
-fi
 
 # Run database migrations
 echo "Running database migrations..."
 alembic upgrade head
 
-# Run the seeding script
-echo "Seeding the database..."
-python -m app.seed
+# Run the seeding script only if RUN_SEEDS is true
+if [ "$RUN_SEEDS" = "True" ] || [ "$RUN_SEEDS" = "true" ]; then
+    echo "Seeding the database..."
+    python -m app.seed
+else
+    echo "Skipping database seeding (RUN_SEEDS is not true)"
+fi
 
 # Start the Uvicorn server
 echo "Starting Uvicorn server..."

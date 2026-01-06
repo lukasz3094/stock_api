@@ -8,8 +8,7 @@ if not DATABASE_URL:
   print("DATABASE_URL environment variable not set.")
   exit(1)
 
-# Replace the asyncpg dialect with psycopg2 compatible one
-DB_URL_PSYCOPG2 = DATABASE_URL.replace("postgresql+asyncpg", "postgresql")
+DB_URL_PSYCOPG2 = DATABASE_URL.replace("+asyncpg", "")
 
 max_attempts = 10
 attempt = 0

@@ -10,6 +10,12 @@ class Settings(BaseSettings):
   SECRET_KEY: str
   ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
   GEMINI_API_KEY: str | None = None
+  
+  # Environment
+  ENVIRONMENT: str = "development"
+  FRONTEND_URL: str = "http://localhost:5173"
+  CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000"]
+  RUN_SEEDS: bool = False
 
   # Email Settings
   MAIL_USERNAME: str = "your_email@example.com"
