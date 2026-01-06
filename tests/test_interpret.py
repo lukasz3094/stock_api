@@ -1,18 +1,7 @@
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
-from unittest.mock import patch, AsyncMock
-
-# Add this to your conftest.py or create a new fixture for mock
-# @pytest_asyncio.fixture(scope="function")
-# async def mock_gemini():
-#     with patch("google.generativeai.GenerativeModel") as mock_model:
-#         mock_instance = mock_model.return_value
-#         mock_response = AsyncMock()
-#         mock_response.stream.return_value = [AsyncMock(text="Mocked interpretation part 1"), AsyncMock(text="Mocked interpretation part 2")]
-#         mock_instance.generate_content.return_value = mock_response
-#         yield
-
+from unittest.mock import patch, AsyncMock, MagicMock
 
 @pytest.mark.asyncio
 async def test_interpret_predictions_unauthorized(client: AsyncClient):

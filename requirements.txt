@@ -26,7 +26,7 @@ apscheduler
 pmdarima
 arch
 yfinance
-google-generativeai
+google-genai
 psycopg2-binary
 
 # Formatowanie

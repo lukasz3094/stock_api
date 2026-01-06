@@ -9,7 +9,7 @@ from app.models.price_history import PriceHistory
 from app.models.company import Company
 from app.models.user import User
 from app.config import settings
-import google.generativeai as genai
+from google import genai
 from typing import List
 from fastapi.responses import StreamingResponse
 from datetime import date, timedelta
@@ -24,10 +24,14 @@ def stream_interpretation(prompt: str):
         status_code=500, detail="GEMINI_API_KEY is not configured in the .env file. You can get a key from Google AI Studio.")
 
   try:
-    model = genai.GenerativeModel('gemini-2.5-flash')
-    response = model.generate_content(prompt, stream=True)
-    for chunk in response:
-      yield chunk.text
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    response = client.models.generate_content(
+        model='gemini-2.5-flash', contents=prompt, config={'response_modalities': ['TEXT']},
+    )
+
+    for chunk in client.models.generate_content_stream(model='gemini-2.5-flash', contents=prompt):
+        if chunk.text:
+            yield chunk.text
   except Exception as e:
     print(f"Error during Gemini API call: {e}")
     yield f"Failed to generate interpretation: {e}"
