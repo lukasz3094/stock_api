@@ -18,7 +18,7 @@ if "&sslmode=" in DB_URL:
 engine = create_async_engine(
     DB_URL, 
     echo=True,
-    connect_args={"ssl": "require"} # Force SSL for Neon
+    connect_args={"ssl": settings.SSL_REQUIRED} # Force SSL for Neon
 )
 AsyncSessionLocal = sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False

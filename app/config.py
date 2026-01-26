@@ -16,6 +16,7 @@ class Settings(BaseSettings):
   FRONTEND_URL: str = "http://localhost:5173"
   CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000"]
   RUN_SEEDS: bool = False
+  SSL_REQUIRED: bool = False
 
   # Email Settings
   MAIL_USERNAME: str = "your_email@example.com"
